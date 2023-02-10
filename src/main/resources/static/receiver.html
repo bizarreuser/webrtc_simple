@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>receiver</title>
+</head>
+<script src="./js/adapter.js"></script>
+
+<body>
+
+<video style="margin: 0 auto" id="video" width="512px" height="512px" playsinline autoplay></video>
+
+<script>
+    'use strict';
+
+    let socket = new WebSocket("ws://192.168.43.59:8080/ws_test/receiver")
+    let map = new Map();
+
+    socket.onopen = () => {
+        alert("连接成功！")
+    }
+    socket.onmessage = (msgEvent) => {
+        let split = msgEvent.data.split(" diy_split ");
+        if (map.has(split[0].trim())) {
+            console.log("on ", split[0], "----", split[1]);
+            (map.get(split[0].trim()))(split[1].trim());
+        }
+    }
+    socket.onclose = (e) => {
+        alert(e)
+    }
+
+    let video = document.getElementById("video");
+
+    let connection;
+
+    //设置监听事件
+    map.set("offer", async (offerJson) => {
+        let offer = JSON.parse(offerJson);
+
+        connection = new RTCPeerConnection();
+
+        let constraints = isMobile() ? {audio: true, video: {facingMode: "user"}} : {audio: true, video: true};
+
+        let stream= await navigator.mediaDevices.getUserMedia(constraints);
+        stream.getTracks().forEach((t) => {
+            connection.addTrack(t, stream);
+        })
+
+        stream.getTracks().forEach((track) => {
+            connection.addTrack(track, stream)
+        })
+
+
+        connection.onicecandidate = (evt) => {
+            let real_send;
+
+            if (evt.candidate != null) {
+                real_send = JSON.stringify(evt.candidate);
+            } else {
+                //发送一个flag表示已经没有candide了
+                real_send = JSON.stringify({
+                    flag: '_',
+                })
+            }
+
+            console.log("发送 candidate:", real_send);
+
+            //以' diy_split '分隔类型和内容
+            socket.send("candidate diy_split " + real_send);
+
+        };
+
+        connection.ontrack = (ev) => {
+            video.srcObject = ev.streams[0];
+            console.log("得到stream " + ev.streams[0]);
+        }
+
+        await connection.setRemoteDescription(offer);
+        console.log("set_remote:", offerJson)
+        let answer = await connection.createAnswer();
+        socket.send("answer diy_split " + JSON.stringify(answer));
+
+        for (let i = 0; i < 1000000; i++) {
+        }//由于需要set_remote之后才能 add_candidate,所以这里需要延时
+
+        await connection.setLocalDescription(answer);
+
+        console.log(connection);
+
+    })
+
+    map.set("candidate", async (candidateInitJson) => {
+
+        let candidateInit = JSON.parse(candidateInitJson);
+
+        if (!candidateInit.candidate) {
+            await connection.addIceCandidate(null);
+            console.log(candidateInit + "add candidate finished! ")
+        } else {
+            await connection.addIceCandidate(candidateInit);
+            console.log(candidateInit + "add candidate successful! ")
+        }
+    })
+
+    function isMobile() {
+        return !!window.navigator.userAgent.match(/(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i);
+    }
+</script>
+</body>
+</html>
