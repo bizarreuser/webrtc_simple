@@ -13,7 +13,7 @@
 <script>
     'use strict';
 
-    let socket = new WebSocket("ws://192.168.43.59:8080/ws_test/receiver")
+    let socket = new WebSocket("wss://192.168.43.59:8080/ws_test/receiver")
     let map = new Map();
 
     socket.onopen = () => {
@@ -47,11 +47,6 @@
             connection.addTrack(t, stream);
         })
 
-        stream.getTracks().forEach((track) => {
-            connection.addTrack(track, stream)
-        })
-
-
         connection.onicecandidate = (evt) => {
             let real_send;
 
@@ -71,10 +66,13 @@
 
         };
 
+        //开启监听流
         connection.ontrack = (ev) => {
             video.srcObject = ev.streams[0];
             console.log("得到stream " + ev.streams[0]);
         }
+
+
 
         await connection.setRemoteDescription(offer);
         console.log("set_remote:", offerJson)
@@ -94,8 +92,11 @@
 
         let candidateInit = JSON.parse(candidateInitJson);
 
+
         if (!candidateInit.candidate) {
+
             await connection.addIceCandidate(null);
+
             console.log(candidateInit + "add candidate finished! ")
         } else {
             await connection.addIceCandidate(candidateInit);
