@@ -36,10 +36,14 @@
     }
 
     let connection;
-    let haveRemote = false;
-    let tmp = [];
+    let haveRemote ;
+    let tmp ;
 
     let init = async () => {
+
+        haveRemote=false;
+        tmp=[];
+
         let config = {
             iceServers: [
                 {
