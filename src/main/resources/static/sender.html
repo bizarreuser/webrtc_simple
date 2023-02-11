@@ -36,8 +36,26 @@
     }
 
     let connection;
+    let haveRemote = false;
+    let tmp = [];
+
     let init = async () => {
-        connection = new RTCPeerConnection();
+        let config = {
+            iceServers: [
+                {
+                    urls: [
+                        "turn:192.168.200.130:3478?transport=udp",
+                        "turn:192.168.200.130:3478?transport=tcp"
+                    ],
+                    credential: "654321",
+                    username: "mycoturn",
+                },
+                {
+                    urls: ["stun:192.168.200.130:3478"],
+
+                }],
+        };
+        connection = new RTCPeerConnection(config);
 
         let constraints = isMobile() ? {audio: true, video: {facingMode: "user"}} : {audio: true, video: true};
 
@@ -72,35 +90,43 @@
         //设置ws监听消息事件
         map.set("answer", async (answerJson) => {
             let answer = JSON.parse(answerJson);
-            await connection.setRemoteDescription(answer)
+            await connection.setRemoteDescription(answer);
+            haveRemote = true;
+            for (let i = 0; i < tmp.length; i++) {
+                await addIce(tmp[i])
+            }
             console.log("set_remote:", answerJson, "成功")
         })
 
         map.set("candidate", async (candidateInitJson) => {
             let candidateInit = JSON.parse(candidateInitJson);
-
-            if (!candidateInit.candidate) {
-                await connection.addIceCandidate(null);
-                console.log(candidateInit + "add candidate finished! ")
+            if (haveRemote) {
+                await addIce(candidateInit);
             } else {
-                await connection.addIceCandidate(candidateInit);
-                console.log(candidateInit + "add candidate successful! ")
+                tmp.push(candidateInit)
             }
-
         })
     };
+
+    async function addIce(candidateInit) {
+        if (!candidateInit.candidate) {
+            await connection.addIceCandidate(null);
+            console.log(candidateInit + "add candidate finished! ")
+        } else {
+            await connection.addIceCandidate(candidateInit);
+            console.log(candidateInit + "add candidate successful! ")
+        }
+    }
+
 
     let start = async () => {
         let offer = await connection.createOffer();
         socket.send("offer diy_split " + JSON.stringify(offer));
-
-        for (let i = 0; i < 1000000; i++) {
-        }//延时,等待对方初始化完成并set_remote成功
-
         await connection.setLocalDescription(offer);
-
+        console.log("set_local")
         console.log(connection);
     }
+
     let startBt = document.getElementById("start");
     startBt.onclick = async () => {
         await init();

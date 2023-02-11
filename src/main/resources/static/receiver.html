@@ -15,34 +15,53 @@
 
     let socket = new WebSocket("wss://192.168.43.59:8080/ws_test/receiver")
     let map = new Map();
+    let video = document.getElementById("video");
+
+
 
     socket.onopen = () => {
         alert("连接成功！")
     }
-    socket.onmessage = (msgEvent) => {
+    socket.onmessage = async (msgEvent) => {
         let split = msgEvent.data.split(" diy_split ");
         if (map.has(split[0].trim())) {
             console.log("on ", split[0], "----", split[1]);
-            (map.get(split[0].trim()))(split[1].trim());
+            await (map.get(split[0].trim()))(split[1].trim());
         }
     }
     socket.onclose = (e) => {
         alert(e)
     }
 
-    let video = document.getElementById("video");
-
     let connection;
+    let haveRemote = false;
+    let tmp=[]
 
     //设置监听事件
     map.set("offer", async (offerJson) => {
         let offer = JSON.parse(offerJson);
 
-        connection = new RTCPeerConnection();
+        let config = {
+            iceServers: [
+                {
+                    urls: [
+                        "turn:192.168.200.130:3478?transport=udp",
+                        "turn:192.168.200.130:3478?transport=tcp"
+                    ],
+                    credential: "654321",
+                    username: "mycoturn",
+                },
+                {
+                    urls: ["stun:192.168.200.130:3478"],
+
+                }],
+        };
+
+        connection = new RTCPeerConnection(config);
 
         let constraints = isMobile() ? {audio: true, video: {facingMode: "user"}} : {audio: true, video: true};
 
-        let stream= await navigator.mediaDevices.getUserMedia(constraints);
+        let stream = await navigator.mediaDevices.getUserMedia(constraints);
         stream.getTracks().forEach((t) => {
             connection.addTrack(t, stream);
         })
@@ -73,18 +92,20 @@
         }
 
 
-
         await connection.setRemoteDescription(offer);
         console.log("set_remote:", offerJson)
+        haveRemote = true;
+        for (let i = 0; i < tmp.length; i++) {
+            await addIce(tmp[i])
+        }
+
+
         let answer = await connection.createAnswer();
         socket.send("answer diy_split " + JSON.stringify(answer));
-
-        for (let i = 0; i < 1000000; i++) {
-        }//由于需要set_remote之后才能 add_candidate,所以这里需要延时
-
         await connection.setLocalDescription(answer);
-
+        console.log("set_local")
         console.log(connection);
+
 
     })
 
@@ -92,17 +113,22 @@
 
         let candidateInit = JSON.parse(candidateInitJson);
 
+        if (haveRemote) {
+            await addIce(candidateInit);
+        } else {
+            tmp.push(candidateInit)
+        }
+    })
 
+    async function addIce(candidateInit) {
         if (!candidateInit.candidate) {
-
             await connection.addIceCandidate(null);
-
             console.log(candidateInit + "add candidate finished! ")
         } else {
             await connection.addIceCandidate(candidateInit);
             console.log(candidateInit + "add candidate successful! ")
         }
-    })
+    }
 
     function isMobile() {
         return !!window.navigator.userAgent.match(/(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i);
