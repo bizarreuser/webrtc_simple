@@ -61,7 +61,7 @@
         };
         connection = new RTCPeerConnection(config);
 
-        let constraints = isMobile() ? {audio: true, video: {facingMode: "user"}} : {audio: true, video: true};
+        let constraints = isMobile() ? {audio:false, video: {facingMode: "user"}} : {audio: false, video: true};
 
         let mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         mediaStream.getTracks().forEach((t) => {
