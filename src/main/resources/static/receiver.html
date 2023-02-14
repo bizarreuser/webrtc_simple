@@ -13,7 +13,7 @@
 <script>
     'use strict';
 
-    let socket = new WebSocket("wss://192.168.43.59:8080/ws_test/receiver")
+    let socket = new WebSocket("wss://172.16.74.103:8080/ws_test/receiver")
     let map = new Map();
     let video = document.getElementById("video");
 
@@ -57,14 +57,14 @@
                 }],
         };
 
-        connection = new RTCPeerConnection(config);
+        connection = new RTCPeerConnection();
 
         let constraints = isMobile() ? {audio: false, video: {facingMode: "user"}} : {audio: false, video: true};
 
-        let stream = await navigator.mediaDevices.getDisplayMedia(constraints);
-        stream.getTracks().forEach((t) => {
-            connection.addTrack(t, stream);
-        })
+        // let stream = await navigator.mediaDevices.getUserMedia(constraints);
+        // stream.getTracks().forEach((t) => {
+        //     connection.addTrack(t, stream);
+        // })
 
         connection.onicecandidate = (evt) => {
             let real_send;

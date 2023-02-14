@@ -13,7 +13,7 @@
 <script>
     'use strict';
 
-    let socket = new WebSocket("wss://192.168.43.59:8080/ws_test/sender")
+    let socket = new WebSocket("wss://172.16.74.103:8080/ws_test/sender")
     socket.onclose = (e) => {
         alert(e)
     }
@@ -59,11 +59,13 @@
 
                 }],
         };
-        connection = new RTCPeerConnection(config);
+        connection = new RTCPeerConnection();
 
         let constraints = isMobile() ? {audio:false, video: {facingMode: "user"}} : {audio: false, video: true};
 
-        let mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        let mediaStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+
         mediaStream.getTracks().forEach((t) => {
             connection.addTrack(t, mediaStream);
         })
@@ -93,6 +95,9 @@
 
         //设置ws监听消息事件
         map.set("answer", async (answerJson) => {
+
+
+
             let answer = JSON.parse(answerJson);
             await connection.setRemoteDescription(answer);
             haveRemote = true;
@@ -124,6 +129,8 @@
 
 
     let start = async () => {
+
+
         let offer = await connection.createOffer();
         socket.send("offer diy_split " + JSON.stringify(offer));
         await connection.setLocalDescription(offer);
