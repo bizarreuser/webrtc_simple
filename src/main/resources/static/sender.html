@@ -59,7 +59,7 @@
 
                 }],
         };
-        connection = new RTCPeerConnection(config);
+        connection = new RTCPeerConnection();
 
         let constraints = isMobile() ? {audio:false, video: {facingMode: "user"}} : {audio: false, video: true};
 
