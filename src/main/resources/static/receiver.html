@@ -9,7 +9,7 @@
 <body>
 
 <video style="margin: 0 auto" id="video" width="512px" height="512px" playsinline autoplay></video>
-
+<button id="close">关闭</button>
 <script>
     'use strict';
 
@@ -37,10 +37,43 @@
     let haveRemote = false;
     let tmp=[]
 
-    //设置监听事件
+    //设置监听事件，收到offer之前保证已经初始化
     map.set("offer", async (offerJson) => {
         let offer = JSON.parse(offerJson);
 
+
+        await connection.setRemoteDescription(offer);
+        console.log("set_remote:", offerJson)
+        haveRemote = true;
+        for (let i = 0; i < tmp.length; i++) {
+            await addIce(tmp[i])
+        }
+
+
+        let answer = await connection.createAnswer();
+        socket.send("answer diy_split " + JSON.stringify(answer));
+        await connection.setLocalDescription(answer);
+        console.log("set_local")
+        console.log(connection);
+
+
+    })
+
+    map.set("candidate", async (candidateInitJson) => {
+
+        let candidateInit = JSON.parse(candidateInitJson);
+
+        if (haveRemote) {
+            await addIce(candidateInit);
+
+        } else {
+            tmp.push(candidateInit)
+            console.log("还未set_remote,加入到缓存")
+        }
+    })
+
+    // 收到初始化信息后再开始初始化
+    map.set("init",async (_)=>{
         let config = {
             iceServers: [
                 {
@@ -59,12 +92,14 @@
 
         connection = new RTCPeerConnection();
 
-        let constraints = isMobile() ? {audio: false, video: {facingMode: "user"}} : {audio: false, video: true};
-
+        // let constraints = isMobile() ? {audio: false, video: {facingMode: "user"}} : {audio: false, video: true};
+        //
         // let stream = await navigator.mediaDevices.getUserMedia(constraints);
         // stream.getTracks().forEach((t) => {
         //     connection.addTrack(t, stream);
         // })
+
+
 
         connection.onicecandidate = (evt) => {
             let real_send;
@@ -92,33 +127,18 @@
         }
 
 
-        await connection.setRemoteDescription(offer);
-        console.log("set_remote:", offerJson)
-        haveRemote = true;
-        for (let i = 0; i < tmp.length; i++) {
-            await addIce(tmp[i])
-        }
-
-
-        let answer = await connection.createAnswer();
-        socket.send("answer diy_split " + JSON.stringify(answer));
-        await connection.setLocalDescription(answer);
-        console.log("set_local")
-        console.log(connection);
-
+        socket.send("init_ok diy_split _")
 
     })
 
-    map.set("candidate", async (candidateInitJson) => {
+    window.onbeforeunload = function()
+    {
+        close()
+    }
 
-        let candidateInit = JSON.parse(candidateInitJson);
+    let closeBt = document.getElementById("close");
+    closeBt.onclick = close
 
-        if (haveRemote) {
-            await addIce(candidateInit);
-        } else {
-            tmp.push(candidateInit)
-        }
-    })
 
     async function addIce(candidateInit) {
         if (!candidateInit.candidate) {
@@ -128,6 +148,16 @@
             await connection.addIceCandidate(candidateInit);
             console.log(candidateInit + "add candidate successful! ")
         }
+    }
+
+    function close(){
+        if (connection) {
+            console.log("关闭")
+            connection.close();
+            connection = null;
+        }
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null
     }
 
     function isMobile() {

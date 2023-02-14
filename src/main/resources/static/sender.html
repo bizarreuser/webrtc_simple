@@ -1,152 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Send</title>
+  <meta charset="UTF-8">
+  <title>Send</title>
 </head>
 <script src="./js/adapter.js"></script>
 
 <body>
 
 <button id="start">Start</button>
-
+<button id="close">关闭</button>
 <script>
-    'use strict';
+  'use strict';
 
-    let socket = new WebSocket("wss://172.16.74.103:8080/ws_test/sender")
-    socket.onclose = (e) => {
-        alert(e)
+  let socket = new WebSocket("wss://172.16.74.103:8080/ws_test/sender")
+  socket.onclose = (e) => {
+    alert(e)
+  }
+
+  socket.onopen = () => {
+    alert("连接成功！");
+  }
+  let map = new Map();
+
+  socket.onmessage = async (msgEvent) => {
+    //根据分隔符判断事件类型
+    let split = msgEvent.data.split(" diy_split ");
+
+    if (map.has(split[0].trim())) {
+
+      console.log("on " + split[0].trim(), "----", split[1].trim());
+
+      await (map.get(split[0].trim()))(split[1].trim());//执行对应的方法
     }
+  }
 
-    socket.onopen = () => {
-        alert("连接成功！");
-    }
-    let map = new Map();
+  let connection;
+  let haveRemote;
+  let tmp;
+  let localStream;
+  let start = async () => {
 
-    socket.onmessage = async (msgEvent) => {
-        //根据分隔符判断事件类型
-        let split = msgEvent.data.split(" diy_split ");
+    let offer = await connection.createOffer();
+    socket.send("offer diy_split " + JSON.stringify(offer));
+    await connection.setLocalDescription(offer);
+    console.log("set_local")
+    console.log(connection);
+  }
 
-        if (map.has(split[0].trim())) {
+  let init = async () => {
 
-            console.log("on " + split[0].trim(), "----", split[1].trim());
+    haveRemote = false;
+    tmp = [];
 
-            await (map.get(split[0].trim()))(split[1].trim());//执行对应的方法
-        }
-    }
+    let config = {
+      iceServers: [
+        {
+          urls: [
+            "turn:192.168.200.130:3478?transport=udp",
+            "turn:192.168.200.130:3478?transport=tcp"
+          ],
+          credential: "654321",
+          username: "mycoturn",
+        },
+        {
+          urls: ["stun:192.168.200.130:3478"],
 
-    let connection;
-    let haveRemote ;
-    let tmp ;
+        }],
+    };
+    connection = new RTCPeerConnection();
 
-    let init = async () => {
+    let constraints = isMobile() ? {audio: false, video: {facingMode: "user"}} : {audio: false, video: true};
 
-        haveRemote=false;
-        tmp=[];
+    let mediaStream = await navigator.mediaDevices.getDisplayMedia(constraints);
 
-        let config = {
-            iceServers: [
-                {
-                    urls: [
-                        "turn:192.168.200.130:3478?transport=udp",
-                        "turn:192.168.200.130:3478?transport=tcp"
-                    ],
-                    credential: "654321",
-                    username: "mycoturn",
-                },
-                {
-                    urls: ["stun:192.168.200.130:3478"],
+    mediaStream.getTracks().forEach((t) => {
+      connection.addTrack(t, mediaStream);
+    })
+    localStream = mediaStream;
 
-                }],
-        };
-        connection = new RTCPeerConnection();
+    // connection.onTrack() 发送方应该不需要onTrack
 
-        let constraints = isMobile() ? {audio:false, video: {facingMode: "user"}} : {audio: false, video: true};
+    connection.onicecandidate = (evt) => {
+      let real_send;
 
-
-        let mediaStream = await navigator.mediaDevices.getDisplayMedia(constraints);
-
-        mediaStream.getTracks().forEach((t) => {
-            connection.addTrack(t, mediaStream);
+      if (evt.candidate != null) {
+        real_send = JSON.stringify(evt.candidate);
+      } else {
+        //发送一个flag表示已经没有candide了
+        real_send = JSON.stringify({
+          flag: '_',
         })
+      }
 
-        // connection.onTrack() 发送方应该不需要onTrack
+      console.log("发送 candidate:", real_send);
 
-        connection.onicecandidate = (evt) => {
-            let real_send;
-
-            if (evt.candidate != null) {
-                real_send = JSON.stringify(evt.candidate);
-            } else {
-                //发送一个flag表示已经没有candide了
-                real_send = JSON.stringify({
-                    flag: '_',
-                })
-            }
-
-            console.log("发送 candidate:", real_send);
-
-            //以' diy_split '分隔类型和内容
-            socket.send("candidate diy_split " + real_send);
-        };
-
-        console.log(connection);
-
-
-        //设置ws监听消息事件
-        map.set("answer", async (answerJson) => {
-
-
-
-            let answer = JSON.parse(answerJson);
-            await connection.setRemoteDescription(answer);
-            haveRemote = true;
-            for (let i = 0; i < tmp.length; i++) {
-                await addIce(tmp[i])
-            }
-            console.log("set_remote:", answerJson, "成功")
-        })
-
-        map.set("candidate", async (candidateInitJson) => {
-            let candidateInit = JSON.parse(candidateInitJson);
-            if (haveRemote) {
-                await addIce(candidateInit);
-            } else {
-                tmp.push(candidateInit)
-            }
-        })
+      //以' diy_split '分隔类型和内容
+      socket.send("candidate diy_split " + real_send);
     };
 
-    async function addIce(candidateInit) {
-        if (!candidateInit.candidate) {
-            await connection.addIceCandidate(null);
-            console.log(candidateInit + "add candidate finished! ")
-        } else {
-            await connection.addIceCandidate(candidateInit);
-            console.log(candidateInit + "add candidate successful! ")
-        }
+    console.log(connection);
+
+    //设置ws监听消息事件
+    map.set("answer", async (answerJson) => {
+
+      let answer = JSON.parse(answerJson);
+      await connection.setRemoteDescription(answer);
+      haveRemote = true;
+      for (let i = 0; i < tmp.length; i++) {
+        await addIce(tmp[i])
+      }
+      console.log("set_remote:", answerJson, "成功")
+    })
+
+    map.set("candidate", async (candidateInitJson) => {
+      let candidateInit = JSON.parse(candidateInitJson);
+      if (haveRemote) {
+        await addIce(candidateInit);
+      } else {
+        tmp.push(candidateInit)
+      }
+    })
+
+    // 收到接收方初始化成功消息后，start
+    map.set("init_ok", async (_) => {
+      await start();
+    })
+
+  };
+
+  async function addIce(candidateInit) {
+    if (!candidateInit.candidate) {
+      await connection.addIceCandidate(null);
+      console.log(candidateInit + "add candidate finished! ")
+    } else {
+      await connection.addIceCandidate(candidateInit);
+      console.log(candidateInit + "add candidate successful! ")
     }
+  }
 
+  let startBt = document.getElementById("start");
+  startBt.onclick = async () => {
+    await init();
+    socket.send("init diy_split _")//通知对方初始化，初始化成功后发过来信号，这里就会start
+  };
+  let closeBt = document.getElementById("close");
+  closeBt.onclick = close
 
-    let start = async () => {
+  function isMobile() {
+    return !!window.navigator.userAgent.match(
+        /(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i);
+  }
 
-
-        let offer = await connection.createOffer();
-        socket.send("offer diy_split " + JSON.stringify(offer));
-        await connection.setLocalDescription(offer);
-        console.log("set_local")
-        console.log(connection);
+  function close() {
+    if (connection) {
+      connection.close();
+      console.log("关闭")
+      connection = null;
     }
-
-    let startBt = document.getElementById("start");
-    startBt.onclick = async () => {
-        await init();
-        await start();
-    };
-
-    function isMobile() {
-        return !!window.navigator.userAgent.match(/(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i);
-    }
+    localStream.getTracks().forEach(track => track.stop());
+    localStream = null
+  }
 </script>
 </body>
 </html>
