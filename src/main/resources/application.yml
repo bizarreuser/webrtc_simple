@@ -1,8 +1,8 @@
-server:
-  ssl:
-    #文件所在位置
-    key-store: classpath:demo.keystore
-    #keystore的密码
-    key-store-password: 123456
-    key-store-type: JKS
-    key-alias: demo.keystore
+#server:
+#  ssl:
+#    #文件所在位置
+#    key-store: classpath:demo.keystore
+#    #keystore的密码
+#    key-store-password: 123456
+#    key-store-type: JKS
+#    key-alias: demo.keystore
