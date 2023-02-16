@@ -13,7 +13,7 @@
 <script>
   'use strict';
 
-  let socket = new WebSocket("wss://172.16.74.103:8080/ws_test/sender")
+  let socket = new WebSocket("wss://ytycc.com:8080/ws_test/sender")
   socket.onclose = (e) => {
     alert(e)
   }
@@ -57,22 +57,22 @@
       iceServers: [
         {
           urls: [
-            "turn:192.168.200.130:3478?transport=udp",
-            "turn:192.168.200.130:3478?transport=tcp"
+            "turn:ytycc.com:3478?transport=udp",
+            "turn:ytycc.com:3478?transport=tcp"
           ],
           credential: "654321",
           username: "mycoturn",
         },
         {
-          urls: ["stun:192.168.200.130:3478"],
+          urls: ["stun:ytycc.com:3478"],
 
         }],
     };
-    connection = new RTCPeerConnection();
+    connection = new RTCPeerConnection(config);
 
     let constraints = isMobile() ? {audio: false, video: {facingMode: "user"}} : {audio: false, video: true};
 
-    let mediaStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+    let mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
 
     mediaStream.getTracks().forEach((t) => {
       connection.addTrack(t, mediaStream);
