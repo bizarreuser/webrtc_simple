@@ -27,7 +27,7 @@ public class EnterUtil {
         if (Objects.nonNull(id)) {
             return id.toString();
         } else {
-            return null;
+            throw new RuntimeException("不可能");
         }
     }
 }

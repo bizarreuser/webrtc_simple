@@ -12,6 +12,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -52,7 +53,7 @@ public class Relay {
 
 
     public void sendTextToExpect(String msg, String... ids) {
-        if (Objects.nonNull(msg)) {
+        if (StringUtils.hasText(msg)) {
             while (!canSend) {
                 Thread.onSpinWait();
             }

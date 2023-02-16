@@ -13,7 +13,9 @@
 <script>
     'use strict';
 
-    let socket = new WebSocket("wss://ytycc.com:8080/ws_test/receiver")
+    let host="localhost"
+
+    let socket = new WebSocket("ws://"+host+":8080/ws_test/receiver")
     let map = new Map();
     let video = document.getElementById("video");
 
@@ -78,14 +80,14 @@
             iceServers: [
                 {
                     urls: [
-                        "turn:ytycc.com:3478?transport=udp",
-                        "turn:ytycc.com:3478?transport=tcp"
+                        "turn:"+host+":3478?transport=udp",
+                        "turn:"+host+":3478?transport=tcp"
                     ],
                     credential: "654321",
                     username: "mycoturn",
                 },
                 {
-                    urls: ["stun:ytycc.com.130:3478"],
+                    urls: ["stun:"+host+":3478"],
 
                 }],
         };

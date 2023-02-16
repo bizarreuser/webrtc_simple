@@ -40,7 +40,7 @@ public class WebSocketSpringConfig implements WebSocketConfigurer {
 
 //        对于同一路径，后add的handler会被覆盖，所以对同一路径，只部署一个handler; 不能用同一个handler部署add多次，因为底层为map的put，会导致之前相同的handler的路径不被处理
         registry
-                .addHandler(textHandler, "/ws_test2/*/*")//一个 * 表示一级,**表示后面可拼接多级,这里这样写表示必须为两级,每级可为空串
+                .addHandler(myHandler, "/ws_test/*")//一个 * 表示一级,**表示后面可拼接多级,这里这样写表示必须为两级,每级可为空串
                 .addInterceptors(interceptor)
                 .setAllowedOrigins("*");
     }
